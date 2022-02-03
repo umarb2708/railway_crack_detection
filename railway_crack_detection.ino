@@ -5,15 +5,23 @@
  * 5VR ----> D10
  * 
  */
+
+//Header Files
 #include <SoftwareSerial.h>
 #include <TinyGPS.h>
+
+//Objects
 SoftwareSerial mySerial(9, 10);
 SoftwareSerial gpsSerial(3,4);//rx,tx 
 TinyGPS gps; 
+
+//Constant Variables
 const int pingPin = 7; // Trigger Pin of Ultrasonic Sensor
 const int echoPin = 6; // Echo Pin of Ultrasonic Sensor
 const int ir_pin = 2; // digital Pin of IR sensor
 const int motor_pin = 5; // digital Pin of IR sensor
+
+//global Variables
 char msg;
 String message="initialize";
 String rcvd="";
@@ -22,6 +30,7 @@ int obj_detected=0;
 int start=0;
 long duration, inches, cm;
 float lat = 28.5458,lon = 77.1703;
+String phone[]={"+917034221248","+917034221248"};
 void setup() 
 {
   mySerial.begin(9600);   // Setting the baud rate of GSM Module  
@@ -37,6 +46,15 @@ void setup()
 void loop() 
 {
   ReceiveMessage();
+  
+  
+  
+  
+  
+  
+  
+  
+  
   if(rcvd.indexOf("Start")>0)
 {
   start=2;
@@ -65,6 +83,7 @@ void loop()
   }
 
 }
+
 void startmsg()
 {
     mySerial.println("AT+CMGF=1");    //Sets the GSM Module in Text Mode
@@ -73,100 +92,65 @@ void startmsg()
   mySerial.println("AT+CNMI=2,2,0,0,0"); // AT Command to recieve a live SMS
   delay(100);
 }
+
 void start_robo()
 {
   Serial.println("Moving");
   digitalWrite(motor_pin, HIGH);
 }
+
 void stop_robo()
 {
   Serial.println("stopped");
   digitalWrite(motor_pin, LOW);
   msg="";
 }
-void SendMessage()
+void SendMessage(int msg_type)
 {
+  int i=0;
   String latitude = String(lat,6); 
-  String longitude = String(lon,6); 
-
-  mySerial.println("AT+CMGF=1");    //Sets the GSM Module in Text Mode
-  delay(1000);  // Delay of 1000 milli seconds or 1 second
-  mySerial.println("AT+CMGS=\"+917034221248\"\r"); // Replace x with mobile number
-  delay(1000);
-  if(obj_detected==0)
+  String longitude = String(lon,6);
+  String sms="robo started"
+  //Type=0:robo start message
+  //Type=1:crack message
+  //Type=2:object detect message
+  //Type=3:number change message
+  if (msg_type==0)
   {
-    mySerial.print("object detected at ");// The SMS text you want to send
-    mySerial.println(latitude+";"+longitude);
-    delay(100);
+    sms="Robo started. Please check your number for message";
   }
-  else
+  else if (msg_type==1)
   {
-    mySerial.print("Crack detected at ");// The SMS text you want to send
-    mySerial.println(latitude+";"+longitude);
-    delay(100);
+    sms="Alert!  Crack detected at LAT:"+latitude+"  LON:"+longitude;
   }
-   mySerial.println((char)26);// ASCII code of CTRL+Z
-   msg="";
-  delay(1000);
-
- mySerial.println("AT+CMGF=1");    //Sets the GSM Module in Text Mode
-  delay(1000);  // Delay of 1000 milli seconds or 1 second
-  mySerial.println("AT+CMGS=\"+919946361106\"\r"); // Replace x with mobile number
-  delay(1000);
-  if(obj_detected==0)
+  else if (msg_type==2)
   {
-    mySerial.print("object detected at ");// The SMS text you want to send
-    mySerial.println(latitude+";"+longitude);
-    delay(100);
-  }
-  else
+    sms="Alert!  Object detected at LAT:"+latitude+"  LON:"+longitude;
+  }  
+  else if (msg_type==3)
   {
-    mySerial.print("Crack detected at ");// The SMS text you want to send
-    mySerial.println(latitude+";"+longitude);
-    delay(100);
+    sms="Phone changed to "+phone[0];
   }
-   mySerial.println((char)26);// ASCII code of CTRL+Z
-   msg="";
-  delay(1000);
-   mySerial.println("AT+CMGF=1");    //Sets the GSM Module in Text Mode
-  delay(1000);  // Delay of 1000 milli seconds or 1 second
-  mySerial.println("AT+CMGS=\"+916238176477\"\r"); // Replace x with mobile number
-  delay(1000);
-  if(obj_detected)
+  
+  
+  do
   {
-    mySerial.print("object detected at ");// The SMS text you want to send
-    mySerial.println(latitude+";"+longitude);
+    mySerial.println("AT+CMGF=1");    //Sets the GSM Module in Text Mode
+    delay(1000);  // Delay of 1000 milli seconds or 1 second
+    mySerial.println("AT+CMGS=\""+phone[i]+"\"\r");
+    delay(1000);
+    mySerial.println(sms);
     delay(100);
-  }
-  else
-  {
-    mySerial.print("Crack detected at ");// The SMS text you want to send
-    mySerial.println(latitude+";"+longitude);
-    delay(100);
-  }
-   mySerial.println((char)26);// ASCII code of CTRL+Z
-   msg="";
-  delay(1000);
-   mySerial.println("AT+CMGF=1");    //Sets the GSM Module in Text Mode
-  delay(1000);  // Delay of 1000 milli seconds or 1 second
-  mySerial.println("AT+CMGS=\"+919446871073\"\r"); // Replace x with mobile number
-  delay(1000);
-  if(obj_detected==0)
-  {
-    mySerial.print("object detected at ");// The SMS text you want to send
-    mySerial.println(latitude+";"+longitude);
-    delay(100);
-  }
-  else
-  {
-    mySerial.print("Crack detected at ");// The SMS text you want to send
-    mySerial.println(latitude+";"+longitude);
-    delay(100);
-  }
-   mySerial.println((char)26);// ASCII code of CTRL+Z
-   msg="";
-  delay(1000);
+    mySerial.println((char)26);// ASCII code of CTRL+Z
+    msg="";
+    delay(1000);
+    
+    i++;
+    if(i==2) msg_type=0;
+    
+  }while(msg_type==3)
 }
+
 void ReceiveMessage()
 {
   if (mySerial.available()>0)
