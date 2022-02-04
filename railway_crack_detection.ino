@@ -24,13 +24,10 @@ const int motor_pin = 5; // digital Pin of IR sensor
 //global Variables
 char msg;
 String message="initialize";
-String rcvd="";
 char call;
-int obj_detected=0;
-int start=0;
 long duration, inches, cm;
 float lat = 28.5458,lon = 77.1703;
-String phone[]={"+917034221248","+917034221248"};
+String phone[]={"+916379293599","+917034221248"};
 void setup() 
 {
   mySerial.begin(9600);   // Setting the baud rate of GSM Module  
@@ -45,65 +42,39 @@ void setup()
 
 void loop() 
 {
-  ReceiveMessage();
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  if(rcvd.indexOf("Start")>0)
-{
-  start=2;
-}
-  if(start>0)
+  String usr_msg=ReceiveMessage();
+  if (usr_msg=="Start"|usr_msg=="start") 
   {
-    Serial.println("Start Message recieved starting robo");
     start_robo();
-      calc_distance();//ULTRA SONIC sensor
-  object_detection();//IR detection
-  if(obj_detected==0 | cm >9)
+    SendMessage(0);
+  }
+  else if (usr_msg.startsWith("number")|usr_msg.startsWith("Number"))
   {
-    Serial.print("Fault detected"); 
-    Serial.print("obj_detected:");
-    Serial.print(obj_detected);
-    Serial.print("cm");
-    Serial.println(cm);
+    if(ChangePhone(usr_msg))
+      SendMessage(3);
+    else
+      SendMessage(4);
+  }
+  if (object_detection())
+  {
+    SendMessage(2);
     stop_robo();
-    start=0;
-    rcvd="";
-    find_location();
-    SendMessage();
-    delay(2000);
-    startmsg();
   }
+  if(crack_detection())
+  {
+    SendMessage(1);
+    stop_robo();
   }
-
+  delay(2000);
+  startmsg();
 }
 
 void startmsg()
 {
-    mySerial.println("AT+CMGF=1");    //Sets the GSM Module in Text Mode
+  mySerial.println("AT+CMGF=1");    //Sets the GSM Module in Text Mode
   delay(100);  // Delay of 1000 milli seconds or 1 second
-  
   mySerial.println("AT+CNMI=2,2,0,0,0"); // AT Command to recieve a live SMS
   delay(100);
-}
-
-void start_robo()
-{
-  Serial.println("Moving");
-  digitalWrite(motor_pin, HIGH);
-}
-
-void stop_robo()
-{
-  Serial.println("stopped");
-  digitalWrite(motor_pin, LOW);
-  msg="";
 }
 void SendMessage(int msg_type)
 {
@@ -131,7 +102,11 @@ void SendMessage(int msg_type)
   {
     sms="Phone changed to "+phone[0];
   }
-  
+  else
+  {
+    sms="Invalid Command";
+  }
+  Serial.println("Sending SMS:"+sms);
   
   do
   {
@@ -146,26 +121,73 @@ void SendMessage(int msg_type)
     delay(1000);
     
     i++;
-    if(i==2) msg_type=0;
     
-  }while(msg_type==3)
+  }while(i<2);
 }
-
-void ReceiveMessage()
+String ReceiveMessage()
 {
+  String rcvd_msg="nomsg"
   if (mySerial.available()>0)
   {
-    rcvd=mySerial.readString();
-    Serial.print(rcvd);
+    rcvd_msg=mySerial.readString();
+    Serial.println("Received MSG:"+rcvd_msg);
   }
+  rcvd_msg.replace("\n","");
+  rcvd_msg.replace("\s","");
+  return rcvd_msg.toLowerCase();
 }
-void object_detection()
+
+void start_robo()
 {
-  obj_detected=digitalRead(ir_pin);
-     Serial.print("Object");
-   Serial.println(obj_detected);
+  Serial.println("Robo Moving Forward");
+  digitalWrite(motor_pin, HIGH);
 }
-void calc_distance()
+
+void stop_robo()
+{
+  Serial.println("Robo stopped moving");
+  digitalWrite(motor_pin, LOW);
+  msg="";
+}
+
+int ChangePhone(String usr_msg)
+{
+  usr_msg.replace("number","");
+  if(usr_msg.length()==10)
+  {
+    phone[0]="+91"+usr_msg;
+    return 1;
+  }
+  else return 0;
+}
+
+int object_detection()
+{
+  int obj_detect=digitalRead(ir_pin);
+  if(obj_detect)
+  {
+    Serial.println("Object detected infron of track");
+    return 1;
+  }
+  else return 0;
+  
+}
+
+
+int crack_detection()
+{
+  float dist=calc_distance();
+  Serial.print("Calculated distance=");
+  Serial.println(cm);
+  if(dist >9.0) 
+  {
+    Serial.println("Crack detected in track");
+    return 1;
+  }
+  else return 0;
+}
+
+float calc_distance()
 {
    pinMode(pingPin, OUTPUT);
    digitalWrite(pingPin, LOW);
@@ -177,12 +199,8 @@ void calc_distance()
    duration = pulseIn(echoPin, HIGH);
    inches = microsecondsToInches(duration);
    cm = microsecondsToCentimeters(duration);
-   Serial.print(inches);
-   Serial.print("in, ");
-   Serial.print(cm);
-   Serial.print("cm");
-   Serial.println();
    delay(100);
+   return cm;
 }
 long microsecondsToInches(long microseconds) 
 {
@@ -193,6 +211,10 @@ long microsecondsToCentimeters(long microseconds)
 {
    return microseconds / 29 / 2;
 }
+
+
+
+
 void find_location()
 {
    while(gpsSerial.available()){ // check for gps data 
